@@ -31,7 +31,7 @@ with st.form("user_inputs"):
     tone=st.text_input("Complexity Level Of Questions", max_chars=20, placeholder="Simple")
 
     #Add Button
-    button=st.form_submit_button("Create MCQs")
+    button=st.form_submit_button("Create MCQs").
 
     # Check if the button is clicked and all fields have input
 
