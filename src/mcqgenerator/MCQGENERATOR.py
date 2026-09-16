@@ -1,0 +1,75 @@
+import os
+import json
+import traceback
+import pandas as pd
+from dotenv import load_dotenv
+from src.mcqgenerator.utils import read_file,get_table_data
+from src.mcqgenerator.logger import logging
+
+#imporing necessary packages packages from langchain
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+
+# Load environment variables from the .env file
+load_dotenv()
+
+# Access the environment variables just like you would with os.environ
+key = os.getenv("OPENAI_API_KEY")
+
+print("Value of MY_VARIABLE:", key)
+
+llm = ChatOpenAI(openai_api_key=key,model_name="gpt-3.5-turbo", temperature=0.3)
+
+template="""
+Text:{text}
+You are an expert MCQ maker. Given the above text, it is your job to \
+create a quiz  of {number} multiple choice questions for {subject} students in {tone} tone. 
+Make sure the questions are not repeated and check all the questions to be conforming the text as well.
+Make sure to format your response like  RESPONSE_JSON below  and use it as a guide. \
+Ensure to make {number} MCQs
+### RESPONSE_JSON
+{response_json}
+
+"""
+
+quiz_generation_prompt = PromptTemplate(
+    input_variables=["text", "number", "subject", "tone", "response_json"],
+    template=template)
+
+quiz_chain = quiz_generation_prompt | llm
+
+template="""
+You are an expert english grammarian and writer. Given a Multiple Choice Quiz for {subject} students.\
+You need to evaluate the complexity of teh question and give a complete analysis of the quiz if the students
+will be able to unserstand the questions and answer them. Only use at max 50 words for complexity analysis. 
+if the quiz is not at par with the cognitive and analytical abilities of the students,\
+update tech quiz questions which needs to be changed  and change the tone such that it perfectly fits the student abilities
+Quiz_MCQs:
+{quiz}
+
+Check from an expert English Writer of the above quiz:
+"""
+
+quiz_evaluation_prompt=PromptTemplate(input_variables=["subject", "quiz"], template=template)
+
+
+review_chain = quiz_evaluation_prompt | llm
+
+def generate_evaluate_chain(inputs):
+    # Generate the quiz
+    quiz_response = quiz_chain.invoke(inputs)
+
+    # Get generated quiz text
+    quiz = quiz_response.content
+
+    # Evaluate the generated quiz
+    review_response = review_chain.invoke({
+        "subject": inputs["subject"],
+        "quiz": quiz
+    })
+
+    # Return result to Streamlit
+    return {
+        "quiz": quiz,
+        "review": review_response.content
+    }
